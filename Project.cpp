@@ -3,10 +3,10 @@
 using namespace std;
 
 const int MAX_SUBJECTS = 10;
-const int MAX_SLOTS = 5;
-const int MAX_TIMESLOTS = 5;
+const int MAX_DAYS = 5;
+const int MAX_TIMESLOTS = 10;
 
-string days[MAX_SLOTS] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
+string days[MAX_DAYS] = {"Monday", "Tuesday", "Wednesday", "Thursday", "Friday"};
 
 class Subject {
 public:
@@ -23,7 +23,7 @@ public:
         cout << "How many lectures per week for " << name << "?: ";
         cin >> lecturesPerWeek;
         assignedLectures = 0;
-        cin.ignore();
+        cin.ignore(); 
     }
 };
 
@@ -34,7 +34,39 @@ private:
     Subject subjects[MAX_SUBJECTS];
     int timeSlotCount;
     string timeSlots[MAX_TIMESLOTS];
-    string schedule[MAX_SLOTS][MAX_TIMESLOTS]; 
+    string schedule[MAX_TIMESLOTS][MAX_DAYS]; 
+
+    int slotOrder[MAX_DAYS * MAX_TIMESLOTS][2];
+
+    void prepareSlotOrder() {
+        int index = 0;
+        for (int d = 0; d < MAX_DAYS; d++) {
+            for (int t = 0; t < timeSlotCount; t++) {
+                slotOrder[index][0] = t;
+                slotOrder[index][1] = d;
+                index++;
+            }
+        }
+
+        
+        for (int i = 0; i < index; i++) {
+            int swapWith = (i * 3 + 2) % index;
+            int tmpT = slotOrder[i][0], tmpD = slotOrder[i][1];
+            slotOrder[i][0] = slotOrder[swapWith][0];
+            slotOrder[i][1] = slotOrder[swapWith][1];
+            slotOrder[swapWith][0] = tmpT;
+            slotOrder[swapWith][1] = tmpD;
+        }
+    }
+
+    bool isSubjectOnSameDay(int day, string subjectName) {
+        for (int t = 0; t < timeSlotCount; t++) {
+            if (schedule[t][day].find(subjectName) != string::npos) {
+                return true;
+            }
+        }
+        return false;
+    }
 
 public:
     void inputDetails() {
@@ -58,69 +90,59 @@ public:
             getline(cin, timeSlots[i]);
         }
 
-       
-        for (int i = 0; i < MAX_SLOTS; i++) {
-            for (int j = 0; j < MAX_TIMESLOTS; j++) {
-                schedule[i][j] = "Free";
+        for (int t = 0; t < MAX_TIMESLOTS; t++) {
+            for (int d = 0; d < MAX_DAYS; d++) {
+                schedule[t][d] = "Free";
             }
         }
-    }
 
-    bool isSubjectOnSameDay(int day, string subjectName) {
-        for (int t = 0; t < timeSlotCount; t++) {
-            if (schedule[day][t].find(subjectName) != string::npos) {
-                return true;
-            }
-        }
-        return false;
+        prepareSlotOrder();
     }
 
     void generateTimetable() {
-        int currentSubject = 0;
-        for (int day = 0; day < MAX_SLOTS; day++) {
-            for (int slot = 0; slot < timeSlotCount; slot++) {
-                if (currentSubject >= subjectCount)
-                    currentSubject = 0;
+        int totalSlots = MAX_DAYS * timeSlotCount;
+        int subjIndex = 0;
 
-                bool assigned = false;
-                for (int s = 0; s < subjectCount; s++) {
-                    int index = (currentSubject + s) % subjectCount;
-                    Subject &sub = subjects[index];
+        for (int i = 0; i < totalSlots; i++) {
+            int t = slotOrder[i][0];
+            int d = slotOrder[i][1];
+            bool assigned = false;
 
-                    if (sub.assignedLectures < sub.lecturesPerWeek && !isSubjectOnSameDay(day, sub.name)) {
-                        schedule[day][slot] = sub.name + " (" + sub.professor + ")";
-                        sub.assignedLectures++;
-                        assigned = true;
-                        currentSubject = index + 1;
-                        break;
-                    }
+            for (int j = 0; j < subjectCount; j++) {
+                int index = (subjIndex + j) % subjectCount;
+                Subject &sub = subjects[index];
+
+                if (sub.assignedLectures < sub.lecturesPerWeek && !isSubjectOnSameDay(d, sub.name)) {
+                    schedule[t][d] = sub.name + " (" + sub.professor + ")";
+                    sub.assignedLectures++;
+                    subjIndex = index + 1;
+                    assigned = true;
+                    break;
                 }
+            }
 
-                if (!assigned) {
-                    schedule[day][slot] = "Free";
-                }
+            if (!assigned) {
+                schedule[t][d] = "Free";
             }
         }
     }
 
     void displayTimetable() {
-            cout << "\n=== Timetable for Branch: " << branch << " ===\n\n";
-        
-            
-            cout << "Time/Day\t";
-            for (int d = 0; d < MAX_SLOTS; d++) {
-                cout << days[d] << "\t";
+        cout << "\n=== Timetable for Branch: " << branch << " ===\n\n";
+
+        cout << "Time\\Day\t";
+        for (int d = 0; d < MAX_DAYS; d++) {
+            cout << days[d] << "\t";
+        }
+        cout << "\n";
+
+        for (int t = 0; t < timeSlotCount; t++) {
+            cout << timeSlots[t] << "\t";
+            for (int d = 0; d < MAX_DAYS; d++) {
+                cout << schedule[t][d] << "\t";
             }
             cout << "\n";
-        
-            
-            for (int t = 0; t < timeSlotCount; t++) {
-                cout << timeSlots[t] << "\t";
-                for (int d = 0; d < MAX_SLOTS; d++) {
-                    cout << schedule[d][t] << "\t";
-                }
-                  cout << "\n";
-            }
+        }
     }
 };
 
