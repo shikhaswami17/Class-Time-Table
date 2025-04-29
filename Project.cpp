@@ -104,23 +104,23 @@ public:
     }
 
     void displayTimetable() {
-        cout << "\n=== Timetable for Branch: " << branch << " ===\n\n";
-
-       
-        cout << "Day\\Time\t";
-        for (int t = 0; t < timeSlotCount; t++) {
-            cout << timeSlots[t] << "\t";
-        }
-        cout << "\n";
-
-       
-        for (int d = 0; d < MAX_SLOTS; d++) {
-            cout << days[d] << "\t";
-            for (int t = 0; t < timeSlotCount; t++) {
-                cout << schedule[d][t] << "\t";
+            cout << "\n=== Timetable for Branch: " << branch << " ===\n\n";
+        
+            
+            cout << "Time/Day\t";
+            for (int d = 0; d < MAX_SLOTS; d++) {
+                cout << days[d] << "\t";
             }
             cout << "\n";
-        }
+        
+            
+            for (int t = 0; t < timeSlotCount; t++) {
+                cout << timeSlots[t] << "\t";
+                for (int d = 0; d < MAX_SLOTS; d++) {
+                    cout << schedule[d][t] << "\t";
+                }
+                  cout << "\n";
+            }
     }
 };
 
