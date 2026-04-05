@@ -3,6 +3,8 @@
 #include <string>
 #include <map>
 #include <set>
+#include <vector>
+
 using namespace std;
 
 const int MAX_SUBJECTS = 10;
@@ -23,7 +25,7 @@ public:
         getline(cin, name);
         cout << "Enter Professor Name for " << name << ": ";
         getline(cin, professor);
-        cout << "How many lectures per week for " << name << "?: ";
+        cout << "How many lectures per week?: ";
         cin >> lecturesPerWeek;
         assignedLectures = 0;
         cin.ignore();
@@ -35,41 +37,64 @@ private:
     string branch;
     int subjectCount;
     Subject subjects[MAX_SUBJECTS];
+
     int timeSlotCount;
     string timeSlots[MAX_TIMESLOTS];
+
     string schedule[MAX_TIMESLOTS][MAX_DAYS];
-    int slotOrder[MAX_DAYS * MAX_TIMESLOTS][2];
+    vector<pair<int,int>> slotOrder;
 
-    
-    map<string, set<pair<int, int>>> profBusy;
+    map<string, set<pair<int,int>>> profBusy;
 
-    void prepareSlotOrder() {
-        int index = 0;
-        for (int d = 0; d < MAX_DAYS; d++) {
-            for (int t = 0; t < timeSlotCount; t++) {
-                slotOrder[index][0] = t;
-                slotOrder[index][1] = d;
-                index++;
-            }
+    bool isValid(int t, int d, Subject &sub) {
+        if (sub.assignedLectures >= sub.lecturesPerWeek)
+            return false;
+
+        for (int i = 0; i < timeSlotCount; i++) {
+            if (schedule[i][d].find(sub.name) != string::npos)
+                return false;
         }
 
-        for (int i = 0; i < index; i++) {
-            int swapWith = (i * 3 + 2) % index;
-            int tmpT = slotOrder[i][0], tmpD = slotOrder[i][1];
-            slotOrder[i][0] = slotOrder[swapWith][0];
-            slotOrder[i][1] = slotOrder[swapWith][1];
-            slotOrder[swapWith][0] = tmpT;
-            slotOrder[swapWith][1] = tmpD;
-        }
+        if (profBusy[sub.professor].count({t, d}))
+            return false;
+
+        return true;
     }
 
-    bool isSubjectOnSameDay(int day, string subjectName) {
-        for (int t = 0; t < timeSlotCount; t++) {
-            if (schedule[t][day].find(subjectName) != string::npos) {
-                return true;
+    bool backtrack(int pos) {
+        if (pos == slotOrder.size())
+            return true;
+
+        int t = slotOrder[pos].first;
+        int d = slotOrder[pos].second;
+
+        for (int i = 0; i < subjectCount; i++) {
+            Subject &sub = subjects[i];
+
+            if (isValid(t, d, sub)) {
+                schedule[t][d] = sub.name + " (" + sub.professor + ")";
+                sub.assignedLectures++;
+                profBusy[sub.professor].insert({t, d});
+
+                if (backtrack(pos + 1))
+                    return true;
+
+                schedule[t][d] = "Free";
+                sub.assignedLectures--;
+                profBusy[sub.professor].erase({t, d});
             }
         }
-        return false;
+
+        schedule[t][d] = "Free";
+        return backtrack(pos + 1);
+    }
+
+    void prepareSlotOrder() {
+        for (int d = 0; d < MAX_DAYS; d++) {
+            for (int t = 0; t < timeSlotCount; t++) {
+                slotOrder.push_back({t, d});
+            }
+        }
     }
 
 public:
@@ -95,73 +120,34 @@ public:
             subjects[i].input();
         }
 
-        cout << "How many time slots per day?: ";
+        cout << "Time slots per day?: ";
         cin >> timeSlotCount;
         cin.ignore();
 
         for (int i = 0; i < timeSlotCount; i++) {
-            cout << "Enter Time Slot " << i + 1 << ": ";
+            cout << "Enter Time Slot: ";
             getline(cin, timeSlots[i]);
         }
 
-        for (int t = 0; t < MAX_TIMESLOTS; t++) {
-            for (int d = 0; d < MAX_DAYS; d++) {
+        for (int t = 0; t < MAX_TIMESLOTS; t++)
+            for (int d = 0; d < MAX_DAYS; d++)
                 schedule[t][d] = "Free";
-            }
-        }
 
         prepareSlotOrder();
     }
 
-    void generateTimetable(bool saveProfBusy = false, const string& outputFile = "") {
-        int totalSlots = MAX_DAYS * timeSlotCount;
-        int subjIndex = 0;
-
-        ofstream fout;
-        if (saveProfBusy && !outputFile.empty()) {
-            fout.open(outputFile);
+    void generateTimetable() {
+        if (!backtrack(0)) {
+            cout << "No valid timetable possible!\n";
         }
-
-        for (int i = 0; i < totalSlots; i++) {
-            int t = slotOrder[i][0];
-            int d = slotOrder[i][1];
-            bool assigned = false;
-
-            for (int j = 0; j < subjectCount; j++) {
-                int index = (subjIndex + j) % subjectCount;
-                Subject& sub = subjects[index];
-
-                if (sub.assignedLectures < sub.lecturesPerWeek &&
-                    !isSubjectOnSameDay(d, sub.name) &&
-                    profBusy[sub.professor].count({t, d}) == 0) {
-
-                    schedule[t][d] = sub.name + " (" + sub.professor + ")";
-                    sub.assignedLectures++;
-                    subjIndex = index + 1;
-                    assigned = true;
-
-                    if (saveProfBusy) {
-                        fout << sub.professor << " " << t << " " << d << endl;
-                    }
-
-                    break;
-                }
-            }
-
-            if (!assigned) {
-                schedule[t][d] = "Free";
-            }
-        }
-
-        if (fout.is_open()) fout.close();
     }
 
     void displayTimetable() {
-        cout << "\n=== Timetable for Branch: " << branch << " ===\n\n";
+        cout << "\n=== Timetable for " << branch << " ===\n\n";
+
         cout << "Time\\Day\t";
-        for (int d = 0; d < MAX_DAYS; d++) {
+        for (int d = 0; d < MAX_DAYS; d++)
             cout << days[d] << "\t";
-        }
         cout << "\n";
 
         for (int t = 0; t < timeSlotCount; t++) {
@@ -175,20 +161,11 @@ public:
 };
 
 int main() {
-    
-    Timetable t1;
-    cout << "Enter details for Branch 1 (e.g., CSE):";
-    t1.inputDetails();
-    t1.generateTimetable(true, "prof_schedule.txt");
-    t1.displayTimetable();
+    Timetable t;
 
-    
-    Timetable t2;
-    cout << "\nEnter details for Branch 2 (e.g., IT):";
-    t2.loadProfessorBusySlots("prof_schedule.txt");
-    t2.inputDetails();
-    t2.generateTimetable(false);
-    t2.displayTimetable();
+    t.inputDetails();
+    t.generateTimetable();
+    t.displayTimetable();
 
     return 0;
 }
